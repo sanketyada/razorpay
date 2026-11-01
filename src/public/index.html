@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RazorPay</title>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.21.0/dist/axios.min.js"></script>
+  </head>
+  <body>
+    <h1>MAKE PAYMENT</h1>
+    <button id="rzp-button1">Pay</button>
+    <script>
+      async function makePayment() {
+        try {
+          const response = await axios.post(
+            "http://localhost:3000/api/payment/6ae6fa073b314c86d992fb95/order",
+          );
+          const payment = response.data.data.payment;
+          const keyId = response.data.keyId;
+
+          const options = {
+            key: keyId,
+            amount: payment.amount * 100,
+            currency: payment.currency,
+            name: "RazorPay",
+            description: "Payment for your order",
+            order_id: payment.orderID,
+
+            handler: async function (checkoutResponse) {
+              console.log("Payment successful:", checkoutResponse);
+              try {
+                const response = await axios.post(
+                  "http://localhost:3000/api/payment/verify",
+                  {
+                    razorpay_order_id: checkoutResponse.razorpay_order_id,
+                    razorpay_payment_id: checkoutResponse.razorpay_payment_id,
+                    razorpay_signature: checkoutResponse.razorpay_signature,
+                  },
+                );
+
+                if (!response.data.success) {
+                  throw new Error(response.data.message);
+                }
+
+                console.log("Backend response:", response.data);
+                alert("Payment verified successfully.");
+              } catch (error) {
+                console.error("Verify API error:", error);
+              }
+            },
+            theme: {
+              color: "#3399cc",
+            },
+          };
+
+          const razorpay = new Razorpay(options);
+          razorpay.on("payment.failed", function (checkoutResponse) {
+            alert(checkoutResponse.error.description);
+          });
+          razorpay.open();
+        } catch (error) {
+          console.error("Unable to start Razorpay Checkout:", error);
+          alert("Unable to start payment. Please try again.");
+        }
+      }
+
+      document.getElementById("rzp-button1").onclick = makePayment;
+    </script>
+  </body>
+</html>
+
